@@ -4,6 +4,7 @@ A simple Node.js + Express + PostgreSQL application to keep track of countries v
 
 ## 📷 Preview
 ![Travel Tracker Screenshot](./Preview.png) 
+![Travel Tracker Screenshot](./Preview2.png) 
 
 
 ## 📌 Features
