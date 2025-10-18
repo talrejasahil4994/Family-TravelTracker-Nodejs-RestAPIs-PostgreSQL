@@ -3,15 +3,22 @@ import bodyParser from "body-parser";
 import pg from "pg";
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-const db = new pg.Client({
-  user: "postgres",
-  host: "localhost",
-  database: "world",
-  password: "",//dm me if you want
-  port: 5433,
-});
+// Prefer DATABASE_URL if provided; otherwise fall back to individual PG* env vars or defaults
+const db = process.env.DATABASE_URL
+  ? new pg.Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
+    })
+  : new pg.Client({
+      user: process.env.PGUSER || "postgres",
+      host: process.env.PGHOST || "localhost",
+      database: process.env.PGDATABASE || "world",
+      password: process.env.PGPASSWORD || "",
+      port: parseInt(process.env.PGPORT || "5432", 10),
+    });
+
 db.connect();
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -49,12 +56,12 @@ app.get("/", async (req, res) => {
     countries: countries,
     total: countries.length,
     users: users,
-    color: currentUser.color,
+    color: currentUser?.color || "teal",
   });
 });
 app.post("/add", async (req, res) => {
   const input = req.body["country"];
-  const currentUser = await getCurrentUser();
+  await getCurrentUser();
 
   try {
     const result = await db.query(
@@ -63,6 +70,15 @@ app.post("/add", async (req, res) => {
     );
 
     const data = result.rows[0];
+    if (!data) {
+      return res.render("index.ejs", {
+        countries: await checkVisisted(),
+        total: (await checkVisisted()).length,
+        users,
+        color: (await getCurrentUser())?.color || "teal",
+        error: "Country not found",
+      });
+    }
     const countryCode = data.country_code;
     try {
       await db.query(
@@ -72,9 +88,11 @@ app.post("/add", async (req, res) => {
       res.redirect("/");
     } catch (err) {
       console.log(err);
+      res.redirect("/");
     }
   } catch (err) {
     console.log(err);
+    res.redirect("/");
   }
 });
 
